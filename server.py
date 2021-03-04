@@ -3,9 +3,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from pathlib import Path
 from typing import List, Dict, Optional
+import datetime
 
 from drivers import CSVAPI
-import datetime
+from utils.general import load_yaml
 
 class SensorPayload(BaseModel):
     timestamp: int
@@ -23,6 +24,7 @@ api = CSVAPI(path = path, schema = SensorPayload)
 @app.post("/health")
 def health():
     return {"status": "up"}
+    
 
 @app.post("/api/v0p1/sensor")
 async def post_sensor(payload: SensorPayload):
@@ -36,5 +38,20 @@ async def debug_get_all_data():
     return data
 
 if __name__ == "__main__":
-    uvicorn.run(app, host = "localhost", port = 8080)
+	server_configs = load_yaml("configs/server_config.yaml")
+	HOST = server_configs["host"]
+	PORT = server_configs["port"]
+
+	ssl_configs = load_yaml("configs/ssl_config.yaml")
+	ssl_enabled = ssl_configs["enabled"]
+	key_file = ssl_configs["key_path"] if ssl_enabled else None
+	cert_file = ssl_configs["cert_path"] if ssl_enabled else None
+
+	uvicorn.run(app,
+				port=PORT,
+				host=HOST,
+				ssl_keyfile=key_file,
+				ssl_certfile=cert_file
+				)
+
 
