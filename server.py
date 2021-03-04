@@ -7,6 +7,7 @@ import datetime
 
 from drivers import CSVAPI
 from utils.general import load_yaml
+from utils.fast import enable_cors
 
 class SensorPayload(BaseModel):
     timestamp: int
@@ -19,6 +20,7 @@ class SensorPayload(BaseModel):
 path = "fake_database12.json"
 
 app = FastAPI()
+enable_cors(app)
 api = CSVAPI(path = path, schema = SensorPayload)
 
 @app.post("/health")
