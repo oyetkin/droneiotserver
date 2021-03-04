@@ -1,5 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
 from pydantic import BaseModel
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -23,10 +25,20 @@ app = FastAPI()
 enable_cors(app)
 api = CSVAPI(path = path, schema = SensorPayload)
 
-@app.post("/health")
+@app.get("/health")
 def health():
-    return {"status": "up"}
-    
+	return {"status":"up"}
+
+#@app.post("/health")
+#def health():
+#	 return {"status": "up"}
+
+@app.get("/")
+def home():
+	fs = open("static/front_page/index.html")
+	content = fs.read()
+	fs.close()
+	return HTMLResponse( content )
 
 @app.post("/api/v0p1/sensor")
 async def post_sensor(payload: SensorPayload):
