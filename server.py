@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 
 from pydantic import BaseModel
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import datetime
 
 from drivers import CSVAPI
@@ -22,7 +22,7 @@ class SensorPayload(BaseModel):
 class SensorBatch(BaseModel):
 	items:List[SensorPayload]
 
-class BoundedQuery(BaseException):
+class BoundedQuery(BaseModel):
 	time_range: Optional[Tuple[int, int]]
 	lat_range: Optional[Tuple[float, float]]
 	lon_range: Optional[Tuple[float, float]]
@@ -43,10 +43,9 @@ async def post_sensor(payload: SensorPayload):
 	"""
 	Post sensor data.
 	"""
-
-    print(payload)
-    api.write(payload)
-    return {"status": "ok"}
+	#print(payload)
+	api.write(payload)
+	return {"status": "ok"}
 
 
 @app.post("/api/v0p1/sensor/batch")
@@ -59,32 +58,32 @@ async def post_sensor_batch(payload: SensorBatch):
 		api.write(payload)
 	return {"status": "ok"}
 
-@app.get("/api/v0p1/query/bounded")
-async def bounded_query(payload: BoundedQuery):
-#   Idea: Make ranges bounded in one direction only
-    data:List[SensorPayload] = api.get_data()
-	keys:List[str] = list(dict(data).keys())
+@app.post("/api/v0p1/query/bounded")
+async def bounded_query(payload:BoundedQuery):
+	#   Idea: Make ranges bounded in one direction only
+	data:List[SensorPayload] = api.get_data()
+	keys:List[str] = list(dict(payload).keys())
 
 	if "time_range" in keys:
-		in_range = lambda d: d.timestamp < payload.time_range[1] && d.timestamp > payload.time_range[0] 
+		in_range = lambda d: d.timestamp < payload.time_range[1] and d.timestamp > payload.time_range[0] 
 		data = filter(in_range, data)
-	
+
 	if "lat_range" in keys:
-		in_range = lambda d: d.lat < payload.lat_range[1] && d.lat > payload.lat_range[0] 
+		in_range = lambda d: d.lat < payload.lat_range[1] and d.lat > payload.lat_range[0] 
 		data = filter(in_range, data)
 
 	if "lon_range" in keys:
-		in_range = lambda d: d.lon < payload.lon_range[1] && d.lon > payload.lon_range[0] 
+		in_range = lambda d: d.lon < payload.lon_range[1] and d.lon > payload.lon_range[0] 
 		data = filter(in_range, data)
 
 	if "key" in keys:
-		has_key = lambda d: payload.key in d  
+		has_key = lambda d: payload.key in d
 		data = filter(has_key, data)
 
-	if "unit" in keys"
+	if "unit" in keys:
 		has_unit = lambda d: playload.unit in d
-		data = filter(has_unit, data)	
-	
+		data = filter(has_unit, data)
+
 	return list(data)
 
 @app.get("/health")
