@@ -64,23 +64,23 @@ async def bounded_query(payload:BoundedQuery):
 	data:List[SensorPayload] = api.get_data()
 	keys:List[str] = list(dict(payload).keys())
 
-	if "time_range" in keys:
+	if bounded_query.time_range is not None, len(bounded_query.time_range) == 2:
 		in_range = lambda d: d.timestamp < payload.time_range[1] and d.timestamp > payload.time_range[0] 
 		data = filter(in_range, data)
 
-	if "lat_range" in keys:
+	if bounded_query.lat_range is not None, len(bounded_query.lat_range) == 2:
 		in_range = lambda d: d.lat < payload.lat_range[1] and d.lat > payload.lat_range[0] 
 		data = filter(in_range, data)
 
-	if "lon_range" in keys:
+	if bounded_query.lon_range is not None, len(bounded_query.lon_range) == 2:
 		in_range = lambda d: d.lon < payload.lon_range[1] and d.lon > payload.lon_range[0] 
 		data = filter(in_range, data)
 
-	if "key" in keys:
+	if bounded_query.key is not None:
 		has_key = lambda d: payload.key in d
 		data = filter(has_key, data)
 
-	if "unit" in keys:
+	if bounded_query.unit is not None:
 		has_unit = lambda d: playload.unit in d
 		data = filter(has_unit, data)
 
