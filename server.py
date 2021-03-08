@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 from pathlib import Path
@@ -45,7 +46,8 @@ async def post_sensor(payload: SensorPayload):
 	"""
 	#print(payload)
 	api.write(payload)
-	return {"status": "ok"}
+	return JSONResponse(content = {"status" :"ok"})
+#	return {"status": "ok"}
 
 
 @app.post("/api/v0p1/sensor/batch")
@@ -64,15 +66,15 @@ async def bounded_query(payload:BoundedQuery):
 	data:List[SensorPayload] = api.get_data()
 	keys:List[str] = list(dict(payload).keys())
 
-	if bounded_query.time_range is not None, len(bounded_query.time_range) == 2:
+	if bounded_query.time_range is not None and len(bounded_query.time_range) == 2:
 		in_range = lambda d: d.timestamp < payload.time_range[1] and d.timestamp > payload.time_range[0] 
 		data = filter(in_range, data)
 
-	if bounded_query.lat_range is not None, len(bounded_query.lat_range) == 2:
+	if bounded_query.lat_range is not None and len(bounded_query.lat_range) == 2:
 		in_range = lambda d: d.lat < payload.lat_range[1] and d.lat > payload.lat_range[0] 
 		data = filter(in_range, data)
 
-	if bounded_query.lon_range is not None, len(bounded_query.lon_range) == 2:
+	if bounded_query.lon_range is not None and len(bounded_query.lon_range) == 2:
 		in_range = lambda d: d.lon < payload.lon_range[1] and d.lon > payload.lon_range[0] 
 		data = filter(in_range, data)
 
