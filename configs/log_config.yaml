@@ -1,0 +1,8 @@
+error_logging:
+  std_out: True
+  time:
+    enabled: True
+    max_number: True
+  size_based:
+    enabled: False
+    max_size: False  
