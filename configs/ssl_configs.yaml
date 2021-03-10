@@ -1,4 +1,0 @@
-
-enabled: False
-cert_path: cert.pem
-key_path:  privkey.pem
