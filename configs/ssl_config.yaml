@@ -1,4 +1,4 @@
 
-enabled: True
-cert_path: /etc/letsencrypt/live/api.is-conic.com/cert.pem
-key_path: /etc/letsencrypt/live/api.is-conic.com/privkey.pem
+enabled: False
+cert_path: cert.pem
+key_path:  privkey.pem

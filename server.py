@@ -44,49 +44,65 @@ async def post_sensor(payload: SensorPayload):
 	"""
 	Post sensor data.
 	"""
-	#print(payload)
 	api.write(payload)
 	return JSONResponse(content = {"status" :"ok"})
-#	return {"status": "ok"}
 
 
-@app.post("/api/v0p1/sensor/batch")
-async def post_sensor_batch(payload: SensorBatch):
+# class GetSensorQuery(BaseModel):
+# 	key: Optional[str]
+# 	min_lat: Optional[float]
+# 	max_lat: Optional[float]
+# 	min_lon: Optional[float]
+# 	max_lon: Optional[float]
+
+@app.get("/api/v0p1/list_sensors")
+async def get_sensors():
 	"""
-	Post sensor data.
+	get sensors data.
 	"""
-	for item in payload.items:
-		print(payload)
-		api.write(payload)
-	return {"status": "ok"}
-
-@app.post("/api/v0p1/query/bounded")
-async def bounded_query(payload:BoundedQuery):
-	#   Idea: Make ranges bounded in one direction only
 	data:List[SensorPayload] = api.get_data()
-	keys:List[str] = list(dict(payload).keys())
+	sensor_dict = {d.key: d for d in data}
+	sensor_data = list(sensor_dict.values())
+	print(sensor_data)
+	return [dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
 
-	if bounded_query.time_range is not None and len(bounded_query.time_range) == 2:
-		in_range = lambda d: d.timestamp < payload.time_range[1] and d.timestamp > payload.time_range[0] 
-		data = filter(in_range, data)
+# @app.post("/api/v0p1/sensor/batch")
+# async def post_sensor_batch(payload: SensorBatch):
+# 	"""
+# 	Post sensor data.
+# 	"""
+# 	for item in payload.items:
+# 		print(payload)
+# 		api.write(payload)
+# 	return {"status": "ok"}
 
-	if bounded_query.lat_range is not None and len(bounded_query.lat_range) == 2:
-		in_range = lambda d: d.lat < payload.lat_range[1] and d.lat > payload.lat_range[0] 
-		data = filter(in_range, data)
+# @app.post("/api/v0p1/query/bounded")
+# async def bounded_query(payload:BoundedQuery):
+# 	#   Idea: Make ranges bounded in one direction only
+# 	data:List[SensorPayload] = api.get_data()
+# 	keys:List[str] = list(dict(payload).keys())
 
-	if bounded_query.lon_range is not None and len(bounded_query.lon_range) == 2:
-		in_range = lambda d: d.lon < payload.lon_range[1] and d.lon > payload.lon_range[0] 
-		data = filter(in_range, data)
+# 	if bounded_query.time_range is not None and len(bounded_query.time_range) == 2:
+# 		in_range = lambda d: d.timestamp < payload.time_range[1] and d.timestamp > payload.time_range[0] 
+# 		data = filter(in_range, data)
 
-	if bounded_query.key is not None:
-		has_key = lambda d: payload.key in d
-		data = filter(has_key, data)
+# 	if bounded_query.lat_range is not None and len(bounded_query.lat_range) == 2:
+# 		in_range = lambda d: d.lat < payload.lat_range[1] and d.lat > payload.lat_range[0] 
+# 		data = filter(in_range, data)
 
-	if bounded_query.unit is not None:
-		has_unit = lambda d: playload.unit in d
-		data = filter(has_unit, data)
+# 	if bounded_query.lon_range is not None and len(bounded_query.lon_range) == 2:
+# 		in_range = lambda d: d.lon < payload.lon_range[1] and d.lon > payload.lon_range[0] 
+# 		data = filter(in_range, data)
 
-	return list(data)
+# 	if bounded_query.key is not None:
+# 		has_key = lambda d: payload.key in d
+# 		data = filter(has_key, data)
+
+# 	if bounded_query.unit is not None:
+# 		has_unit = lambda d: playload.unit in d
+# 		data = filter(has_unit, data)
+
+# 	return list(data)
 
 @app.get("/health")
 def health():
