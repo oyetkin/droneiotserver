@@ -66,6 +66,40 @@ async def get_sensors():
 	print(sensor_data)
 	return [dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
 
+
+
+class PointGeometry(BaseModel):
+	type:str = "Point"
+	coordinates: List
+	
+class GeoJSONFeature(BaseModel):
+	type:str = "Feature"
+	properties: Dict = {}
+	geometry: PointGeometry
+	
+class GeoJSONFeatureCollection(BaseModel):
+	type:str = "FeatureCollection"
+	features: List[GeoJSONFeature]
+
+@app.get("/api/v0p1/list_sensors/geojson")
+async def get_sensors():
+	
+	data:List[SensorPayload] = api.get_data()
+	sensor_dict = {d.key: d for d in data}
+	sensor_data = list(sensor_dict.values())
+	
+	feautures:List[GeoJSONFeature] = []
+
+	for sensor in sensor_data:
+		point_geom = PointGeometry(coordinates = [sensor.lon, sensor.lat])
+		geo_feature = GeoJSONFeature(properties = dict(key = sensor.key),
+									geometry = point_geom)
+		feautures.append(geo_feature)
+	print(feautures)
+	feature_collection = GeoJSONFeatureCollection(features = feautures)
+	return feature_collection#[dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
+
+
 # @app.post("/api/v0p1/sensor/batch")
 # async def post_sensor_batch(payload: SensorBatch):
 # 	"""
