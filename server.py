@@ -100,6 +100,37 @@ async def get_sensors():
 	return feature_collection#[dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
 
 
+@app.get("/api/v0p1/sensor_by_id/{sensor_id}")
+async def get_sensor_values(sensor_id: str,
+							min_time: Optional[int]   = None,
+							max_time: Optional[int]   = None,
+							min_lat:  Optional[float] = None,
+							max_lat:  Optional[float] = None, 
+							min_lon:  Optional[float] = None,
+							max_lon:  Optional[float] = None):
+
+	data:List[SensorPayload] = api.get_data()
+	data = [sensor for sensor in data if sensor.key == sensor_id]
+
+	if min_time:
+		data = [sensor for sensor in data if sensor.timestamp > min_time]
+	if max_time:
+		data = [sensor for sensor in data if sensor.timestamp < max_time]
+	
+	if min_lat:
+		data = [sensor for sensor in data if sensor.lat > min_lat]
+	if max_lat:
+		data = [sensor for sensor in data if sensor.lat < max_lat]
+	
+	if min_lon:
+		data = [sensor for sensor in data if sensor.lon > min_lon]
+	if max_lon:
+		data = [sensor for sensor in data if sensor.lon > max_lon]
+	
+	data = sorted(data, key = lambda sensor: -sensor.timestamp)
+	return data
+
+	
 # @app.post("/api/v0p1/sensor/batch")
 # async def post_sensor_batch(payload: SensorBatch):
 # 	"""
