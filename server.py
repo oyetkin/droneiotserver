@@ -112,19 +112,22 @@ async def get_sensor_values(sensor_id: str,
 	data:List[SensorPayload] = api.get_data()
 	data = [sensor for sensor in data if sensor.key == sensor_id]
 
-	if min_time:
+	print(min_lat,	type(min_lat))
+	print(min_time, type(min_time))
+
+	if min_time is not "":
 		data = [sensor for sensor in data if sensor.timestamp > min_time]
-	if max_time:
+	if max_time is not "":
 		data = [sensor for sensor in data if sensor.timestamp < max_time]
 	
-	if min_lat:
+	if min_lat is not "":
 		data = [sensor for sensor in data if sensor.lat > min_lat]
-	if max_lat:
+	if max_lat is not "":
 		data = [sensor for sensor in data if sensor.lat < max_lat]
 	
-	if min_lon:
+	if min_lon is not "":
 		data = [sensor for sensor in data if sensor.lon > min_lon]
-	if max_lon:
+	if max_lon is not "":
 		data = [sensor for sensor in data if sensor.lon > max_lon]
 	
 	data = sorted(data, key = lambda sensor: -sensor.timestamp)
