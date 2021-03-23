@@ -29,8 +29,6 @@ class BoundedQuery(BaseModel):
 	lon_range: Optional[Tuple[float, float]]
 	key: Optional[str]
 	unit: Optional[str]
-	# unit_regex: Optional[str]
-	# key_regex: Optional[str]
 
 
 path = "fake_database12.json"
@@ -47,13 +45,15 @@ async def post_sensor(payload: SensorPayload):
 	api.write(payload)
 	return JSONResponse(content = {"status" :"ok"})
 
+@app.post("/api/v0p1/sensor/batch")
+async def post_sensor_batch(payload: List[SensorPayload]):
+	"""
+	Post sensor data in batches.
+	"""
+	for item in payload:
+		api.write(payload)
+	return {"status": "ok"}
 
-# class GetSensorQuery(BaseModel):
-# 	key: Optional[str]
-# 	min_lat: Optional[float]
-# 	max_lat: Optional[float]
-# 	min_lon: Optional[float]
-# 	max_lon: Optional[float]
 
 @app.get("/api/v0p1/list_sensors")
 async def get_sensors():
@@ -134,43 +134,6 @@ async def get_sensor_values(sensor_id: str,
 	return data
 
 	
-# @app.post("/api/v0p1/sensor/batch")
-# async def post_sensor_batch(payload: SensorBatch):
-# 	"""
-# 	Post sensor data.
-# 	"""
-# 	for item in payload.items:
-# 		print(payload)
-# 		api.write(payload)
-# 	return {"status": "ok"}
-
-# @app.post("/api/v0p1/query/bounded")
-# async def bounded_query(payload:BoundedQuery):
-# 	#   Idea: Make ranges bounded in one direction only
-# 	data:List[SensorPayload] = api.get_data()
-# 	keys:List[str] = list(dict(payload).keys())
-
-# 	if bounded_query.time_range is not None and len(bounded_query.time_range) == 2:
-# 		in_range = lambda d: d.timestamp < payload.time_range[1] and d.timestamp > payload.time_range[0] 
-# 		data = filter(in_range, data)
-
-# 	if bounded_query.lat_range is not None and len(bounded_query.lat_range) == 2:
-# 		in_range = lambda d: d.lat < payload.lat_range[1] and d.lat > payload.lat_range[0] 
-# 		data = filter(in_range, data)
-
-# 	if bounded_query.lon_range is not None and len(bounded_query.lon_range) == 2:
-# 		in_range = lambda d: d.lon < payload.lon_range[1] and d.lon > payload.lon_range[0] 
-# 		data = filter(in_range, data)
-
-# 	if bounded_query.key is not None:
-# 		has_key = lambda d: payload.key in d
-# 		data = filter(has_key, data)
-
-# 	if bounded_query.unit is not None:
-# 		has_unit = lambda d: playload.unit in d
-# 		data = filter(has_unit, data)
-
-# 	return list(data)
 
 @app.get("/health")
 def health():
