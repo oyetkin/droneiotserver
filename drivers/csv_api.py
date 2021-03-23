@@ -66,8 +66,10 @@ class CSVAPI:
         for line in self.state:
             kwargs = {__keys[i]:line[i] for i in range(len(__keys))}
             print(f">>>{kwargs}")
-            __data.append(self.schema(**kwargs))
-
+            try:
+                __data.append(self.schema(**kwargs))
+            except Exception as e:
+                print(e)
         self.state = __data
     
     def write(self, payload:BaseModel):
