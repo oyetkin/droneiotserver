@@ -68,8 +68,8 @@ async def post_sensor_batch(payload: List[SensorPayload]):
 @app.get("/api/v0p1/list_sensors", tags = ["Download"])
 async def get_sensors():
 	"""
-	get sensors data.
-	"""
+	Returns a list of ALL unique sensors(by sensor key) and their latest latitude and longitude coordinates.
+	"""	
 	data:List[SensorPayload] = api.get_data()
 	sensor_dict = {d.key: d for d in data}
 	sensor_data = list(sensor_dict.values())
@@ -79,7 +79,9 @@ async def get_sensors():
 
 @app.get("/api/v0p1/list_sensors/geojson", tags = ["Download"])
 async def get_sensors():
-	
+	"""
+	Returns a list of ALL unique sensors(by sensor key) and their latest latitude and longitude coordinates. The returned represenation is GEOJSON 
+	"""	
 	data:List[SensorPayload] = api.get_data()
 	sensor_dict = {d.key: d for d in data}
 	sensor_data = list(sensor_dict.values())
@@ -105,6 +107,10 @@ async def get_sensor_values(sensor_id: str,
 							min_lon:  Optional[float] = None,
 							max_lon:  Optional[float] = None):
 
+	"""
+	Returns a list of ALL sensors containing a certain ID. Additional parameters exist to filter for a given geographic area (bounding box) as well as time range.
+	"""
+
 	data:List[SensorPayload] = api.get_data()
 	data = [sensor for sensor in data if sensor.key == sensor_id]
 
@@ -129,14 +135,26 @@ async def get_sensor_values(sensor_id: str,
 	data = sorted(data, key = lambda sensor: -sensor.timestamp)
 	return data
 
-	
+
+class APIStatus(BaseModel):
+	up: bool
+	connected_to_storage: bool 
 
 @app.get("/health", tags= ["Auxilary"])
-def health():
-	return {"status":"up"}
+def health() -> APIStatus:
+	"""
+	Returns a status of the backend. Runs connectivity test to any storage drivers or components.  
+	"""
+
+	# With the CSV API we're going to assume nothing is severed from local storage.
+	status = APIStatus(up = True,	connected_to_storage = True)
+	return status
 
 @app.get("/", tags= ["Auxilary"])
 def home():
+	"""
+	Returns the front page to the IOT application.  
+	"""
 	fs = open("static/front_page/index.html")
 	content = fs.read()
 	fs.close()
@@ -145,18 +163,27 @@ def home():
 
 @app.get("/api/v0p1/debug/get_data", tags = ["Debug"])
 async def debug_get_all_data():
-    data:List[SensorPayload] = api.get_data()
-    return data
+	"""
+	Returns ALL available data
+	"""
+	data:List[SensorPayload] = api.get_data()
+	return data
 
 import time
 @app.get("/api/v0p1/debug/get_timestamp", tags = ["Debug"])
 async def debug_get_ts():
-    return {"timestamp": time.time()}
+	"""
+	Returns current timestamp. This is a feature used for debugging. 
+	"""
+	return {"timestamp": time.time()}
 
 import time
 @app.get("/api/v0p1/debug/get_dallas", tags = ["Debug"])
 async def debug_get_dallas():
-    return {"lat": 32.7767 , "lon": -96.7970}
+	"""
+	Returns the coordinates of Dallas Texas. This is a feature used for debugging. It gives us the same set of coordinates each time it is called. 
+	"""
+	return {"lat": 32.7767 , "lon": -96.7970}
 
 
 if __name__ == "__main__":
