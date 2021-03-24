@@ -20,53 +20,12 @@ class SensorPayload(BaseModel):
     lat:Optional[float]
     lon:Optional[float]
 
-class SensorBatch(BaseModel):
-	items:List[SensorPayload]
-
 class BoundedQuery(BaseModel):
 	time_range: Optional[Tuple[int, int]]
 	lat_range: Optional[Tuple[float, float]]
 	lon_range: Optional[Tuple[float, float]]
 	key: Optional[str]
 	unit: Optional[str]
-
-
-path = "fake_database12.json"
-
-app = FastAPI()
-enable_cors(app)
-api = CSVAPI(path = path, schema = SensorPayload)
-
-@app.post("/api/v0p1/sensor")
-async def post_sensor(payload: SensorPayload):
-	"""
-	Post sensor data.
-	"""
-	api.write(payload)
-	return JSONResponse(content = {"status" :"ok"})
-
-@app.post("/api/v0p1/sensor/batch")
-async def post_sensor_batch(payload: List[SensorPayload]):
-	"""
-	Post sensor data in batches.
-	"""
-	for item in payload:
-		api.write(payload)
-	return {"status": "ok"}
-
-
-@app.get("/api/v0p1/list_sensors")
-async def get_sensors():
-	"""
-	get sensors data.
-	"""
-	data:List[SensorPayload] = api.get_data()
-	sensor_dict = {d.key: d for d in data}
-	sensor_data = list(sensor_dict.values())
-	print(sensor_data)
-	return [dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
-
-
 
 class PointGeometry(BaseModel):
 	type:str = "Point"
@@ -81,7 +40,44 @@ class GeoJSONFeatureCollection(BaseModel):
 	type:str = "FeatureCollection"
 	features: List[GeoJSONFeature]
 
-@app.get("/api/v0p1/list_sensors/geojson")
+
+path = "fake_database12.json"
+
+app = FastAPI()
+enable_cors(app)
+api = CSVAPI(path = path, schema = SensorPayload)
+
+@app.post("/api/v0p1/sensor", tags=["Upload"])
+async def post_sensor(payload: SensorPayload):
+	"""
+	Post sensor data.
+	"""
+	api.write(payload)
+	return JSONResponse(content = {"status" :"ok"})
+
+@app.post("/api/v0p1/sensor/batch", tags=["Upload"])
+async def post_sensor_batch(payload: List[SensorPayload]):
+	"""
+	Post sensor data in batches.
+	"""
+	for item in payload:
+		api.write(payload)
+	return {"status": "ok"}
+
+
+@app.get("/api/v0p1/list_sensors", tags = ["Download"])
+async def get_sensors():
+	"""
+	get sensors data.
+	"""
+	data:List[SensorPayload] = api.get_data()
+	sensor_dict = {d.key: d for d in data}
+	sensor_data = list(sensor_dict.values())
+	print(sensor_data)
+	return [dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
+
+
+@app.get("/api/v0p1/list_sensors/geojson", tags = ["Download"])
 async def get_sensors():
 	
 	data:List[SensorPayload] = api.get_data()
@@ -100,7 +96,7 @@ async def get_sensors():
 	return feature_collection#[dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
 
 
-@app.get("/api/v0p1/sensor_by_id/{sensor_id}")
+@app.get("/api/v0p1/sensor_by_id/{sensor_id}", tags = ["Download"])
 async def get_sensor_values(sensor_id: str,
 							min_time: Optional[int]   = None,
 							max_time: Optional[int]   = None,
@@ -135,11 +131,11 @@ async def get_sensor_values(sensor_id: str,
 
 	
 
-@app.get("/health")
+@app.get("/health", tags= ["Auxilary"])
 def health():
 	return {"status":"up"}
 
-@app.get("/")
+@app.get("/", tags= ["Auxilary"])
 def home():
 	fs = open("static/front_page/index.html")
 	content = fs.read()
@@ -147,18 +143,18 @@ def home():
 	return HTMLResponse( content )
 
 
-@app.get("/api/v0p1/debug/get_data")
+@app.get("/api/v0p1/debug/get_data", tags = ["Debug"])
 async def debug_get_all_data():
     data:List[SensorPayload] = api.get_data()
     return data
 
 import time
-@app.get("/api/v0p1/debug/get_timestamp")
+@app.get("/api/v0p1/debug/get_timestamp", tags = ["Debug"])
 async def debug_get_ts():
     return {"timestamp": time.time()}
 
 import time
-@app.get("/api/v0p1/debug/get_dallas")
+@app.get("/api/v0p1/debug/get_dallas", tags = ["Debug"])
 async def debug_get_dallas():
     return {"lat": 32.7767 , "lon": -96.7970}
 
