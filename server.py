@@ -7,18 +7,23 @@ from pydantic import BaseModel
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import datetime
+import time  
 
 from drivers import CSVAPI
 from utils.general import load_yaml
 from utils.fast import enable_cors
 
 class SensorPayload(BaseModel):
-    timestamp: Optional[int]
-    key:str
-    unit:str
-    value: float
-    lat:Optional[float]
-    lon:Optional[float]
+	key:str
+	measurement_name:str 
+	unit:str
+	value: float
+	timestamp: Optional[int]
+	receipt_time: Optional[int]
+	lat:Optional[float]
+	lon:Optional[float]
+	hardware:Optional[str]
+
 
 class BoundedQuery(BaseModel):
 	time_range: Optional[Tuple[int, int]]
@@ -41,7 +46,7 @@ class GeoJSONFeatureCollection(BaseModel):
 	features: List[GeoJSONFeature]
 
 
-path = "fake_database12.json"
+path = "fake_database123.json"
 
 app = FastAPI()
 enable_cors(app)
@@ -52,6 +57,7 @@ async def post_sensor(payload: SensorPayload):
 	"""
 	Post sensor data.
 	"""
+	payload.receipt_time = time.time()
 	api.write(payload)
 	return JSONResponse(content = {"status" :"ok"})
 
@@ -61,7 +67,8 @@ async def post_sensor_batch(payload: List[SensorPayload]):
 	Post sensor data in batches.
 	"""
 	for item in payload:
-		api.write(payload)
+		item.receipt_time = time.time()
+		api.write(item)
 	return {"status": "ok"}
 
 
@@ -118,18 +125,25 @@ async def get_sensor_values(sensor_id: str,
 	print(min_time, type(min_time))
 
 	if min_time is not None:
+		data = [sensor for sensor in data if sensor.timestamp is not None]
 		data = [sensor for sensor in data if sensor.timestamp > min_time]
+
 	if max_time is not None:
+		data = [sensor for sensor in data if sensor.timestamp is not None]
 		data = [sensor for sensor in data if sensor.timestamp < max_time]
 
 	if min_lat is not None:
+		data = [sensor for sensor in data if sensor.lat is not None]
 		data = [sensor for sensor in data if sensor.lat > min_lat]
 	if max_lat is not None:
+		data = [sensor for sensor in data if sensor.lat is not None]
 		data = [sensor for sensor in data if sensor.lat < max_lat]
 
 	if min_lon is not None:
+		data = [sensor for sensor in data if sensor.lon is not None]		
 		data = [sensor for sensor in data if sensor.lon > min_lon]
 	if max_lon is not None:
+		data = [sensor for sensor in data if sensor.lon is not None]				
 		data = [sensor for sensor in data if sensor.lon > max_lon]
 
 	data = sorted(data, key = lambda sensor: -sensor.timestamp)
