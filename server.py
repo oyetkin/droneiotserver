@@ -18,8 +18,8 @@ class SensorPayload(BaseModel):
 	measurement_name:str 
 	unit:str
 	value: float
-	timestamp: Optional[int]
-	receipt_time: Optional[int]
+	timestamp: Optional[str]
+	receipt_time: Optional[float]
 	lat:Optional[float]
 	lon:Optional[float]
 	hardware:Optional[str]
@@ -112,13 +112,15 @@ async def get_sensor_values(sensor_id: str,
 							min_lat:  Optional[float] = None,
 							max_lat:  Optional[float] = None, 
 							min_lon:  Optional[float] = None,
-							max_lon:  Optional[float] = None):
+							max_lon:  Optional[float] = None,
+							limit  :  Optional[int]   = None):
 
 	"""
 	Returns a list of ALL sensors containing a certain ID. Additional parameters exist to filter for a given geographic area (bounding box) as well as time range.
 	"""
 
 	data:List[SensorPayload] = api.get_data()
+	print(f"LENGTH:{len(data)}")
 	data = [sensor for sensor in data if sensor.key == sensor_id]
 
 	print(min_lat,	type(min_lat))
@@ -146,7 +148,7 @@ async def get_sensor_values(sensor_id: str,
 		data = [sensor for sensor in data if sensor.lon is not None]				
 		data = [sensor for sensor in data if sensor.lon > max_lon]
 
-	data = sorted(data, key = lambda sensor: -sensor.timestamp)
+#	data = sorted(data, key = lambda sensor: -sensor.timestamp)
 	return data
 
 
