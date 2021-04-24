@@ -85,7 +85,7 @@ async def get_sensors():
 
 
 @app.get("/api/v0p1/list_sensors/geojson", tags = ["Download"])
-async def get_sensors():
+async def get_sensors_geojson():
 	"""
 	Returns a list of ALL unique sensors(by sensor key) and their latest latitude and longitude coordinates. The returned represenation is GEOJSON 
 	"""	
