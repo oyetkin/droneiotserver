@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Union
 import datetime
 import time  
 
@@ -17,7 +17,7 @@ class SensorPayload(BaseModel):
 	key:str
 	measurement_name:str 
 	unit:str
-	value: float
+	value: Union[float, int]
 	timestamp: Optional[str]
 	receipt_time: Optional[float]
 	lat:Optional[float]
