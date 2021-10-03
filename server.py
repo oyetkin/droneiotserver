@@ -9,20 +9,64 @@ from typing import List, Dict, Optional, Tuple, Union
 import datetime
 import time  
 
-from drivers import CSVAPI
 from utils.general import load_yaml
 from utils.fast import enable_cors
+from utils.geojson_models import GeoJSONFeature, GeoJSONFeatureCollection, PointGeometry
 
+from storage.sqlite_api.driver import MeasurementsDBAdapter
+from storage.models import MeasurementsQuery, Measurement
+
+#This is the input schema for a web request
 class SensorPayload(BaseModel):
 	key:str
 	measurement_name:str 
 	unit:str
 	value: Union[float, int]
 	timestamp: Optional[str]
-	receipt_time: Optional[float]
 	lat:Optional[float]
 	lon:Optional[float]
 	hardware:Optional[str]
+
+class BatchedSensorPayload(BaseModel):
+	key:str
+	measurement_name:str
+	unit:str
+	values : List[Union[float, int]]
+	timestamps: List[int]
+	lat:Optional[float]
+	lon:Optional[float]
+	hardware:Optional[str]
+
+def sensor_payload_to_measurement(payload:SensorPayload) -> Measurement:
+	measurement = Measurement(key = payload.key,
+							  measurement_name = payload.measurement_name,
+							  unit = payload.unit,
+							  timestamp = datetime.datetime.fromtimestamp(int(payload.timestamp)),
+							  latitude = payload.lat,
+							  longitude = payload.lon,
+							  receipt_time = datetime.datetime.now(),
+							  value = payload.value,
+							  hardware = payload.hardware)
+	return measurement
+
+def batched_sensor_payload_to_measurements(batch: BatchedSensorPayload) -> List[Measurement]:
+	measurements = []
+
+	print(batch.timestamps)
+
+	for value, timestamp in zip(batch.values, batch.timestamps):
+		print(timestamp)
+		measurement = Measurement(key=batch.key,
+								  measurement_name=batch.measurement_name,
+								  unit=batch.unit,
+								  timestamp=datetime.datetime.fromtimestamp(int(timestamp)),
+								  latitude=batch.lat,
+								  longitude=batch.lon,
+								  receipt_time = datetime.datetime.min,
+								  value = value,
+								  hardware=batch.hardware)
+		measurements.append(measurement)
+	return measurements
 
 
 class BoundedQuery(BaseModel):
@@ -32,129 +76,130 @@ class BoundedQuery(BaseModel):
 	key: Optional[str]
 	unit: Optional[str]
 
-class PointGeometry(BaseModel):
-	type:str = "Point"
-	coordinates: List
-	
-class GeoJSONFeature(BaseModel):
-	type:str = "Feature"
-	properties: Dict = {}
-	geometry: PointGeometry
-	
-class GeoJSONFeatureCollection(BaseModel):
-	type:str = "FeatureCollection"
-	features: List[GeoJSONFeature]
 
 
-path = "fake_database123.json"
+
+storage_adapter = MeasurementsDBAdapter()
 
 app = FastAPI()
 enable_cors(app)
-api = CSVAPI(path = path, schema = SensorPayload)
 
-@app.post("/api/v0p1/sensor", tags=["Upload"])
+## passed
+@app.post("/api/v0p2/sensor", tags=["Upload", "V0p2"])
 async def post_sensor(payload: SensorPayload):
 	"""
 	Post sensor data.
 	"""
-	payload.receipt_time = time.time()
-	api.write(payload)
+	measurement = sensor_payload_to_measurement(payload)
+	measurement.receipt_time = datetime.datetime.now()
+
+	storage_adapter.insert_measurement(measurement)
+
 	return JSONResponse(content = {"status" :"ok"})
 
-@app.post("/api/v0p1/sensor/batch", tags=["Upload"])
-async def post_sensor_batch(payload: List[SensorPayload]):
+
+
+##############################################################################
+##############################################################################
+
+## passed
+@app.post("/api/v0p2/sensor/batch", tags=["Upload","V0p2"])
+async def post_sensor_batch(payload: BatchedSensorPayload):
 	"""
 	Post sensor data in batches.
 	"""
-	for item in payload:
-		item.receipt_time = time.time()
-		api.write(item)
+	measurements = batched_sensor_payload_to_measurements(payload)
+	request_time = datetime.datetime.now()
+
+	for m in measurements:
+		m.receipt_time = request_time
+		storage_adapter.insert_measurement(m)
+
 	return {"status": "ok"}
 
-
-@app.get("/api/v0p1/list_sensors", tags = ["Download"])
+#passed
+@app.get("/api/v0p2/list_sensors", tags = ["Download", "V0p2"])
 async def get_sensors():
 	"""
 	Returns a list of ALL unique sensors(by sensor key) and their latest latitude and longitude coordinates.
-	"""	
-	data:List[SensorPayload] = api.get_data()
-	sensor_dict = {d.key: d for d in data}
-	sensor_data = list(sensor_dict.values())
-	print(sensor_data)
-	return [dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
+	"""
+	sensors = storage_adapter.get_stations()
+
+	response = []
+	for name, latest_time, lat,lon in sensors:
+		response.append(dict(key = name, lat = lat, lon = lon, latest = latest_time))
+
+	return response
+
+#passed
+@app.get("/api/v0p2/list_stations", tags=["Download", "V0p2"])
+async def get_stations():
+	"""
+	Returns a list of ALL unique sensors(by sensor key) and their latest latitude and longitude coordinates.
+	"""
+	stations = storage_adapter.get_stations()
+
+	return list(map(lambda x: x.dict(), stations))
 
 
-@app.get("/api/v0p1/list_sensors/geojson", tags = ["Download"])
+#passed
+@app.get("/api/v0p2/list_stations/geojson", tags = ["Download", "V0p2"])
 async def get_sensors_geojson():
 	"""
 	Returns a list of ALL unique sensors(by sensor key) and their latest latitude and longitude coordinates. The returned represenation is GEOJSON 
 	"""	
-	data:List[SensorPayload] = api.get_data()
-	sensor_dict = {d.key: d for d in data}
-	sensor_data = list(sensor_dict.values())
-	
+	stations = storage_adapter.get_stations()
+
 	feautures:List[GeoJSONFeature] = []
 
-	for sensor in sensor_data:
-		point_geom = PointGeometry(coordinates = [sensor.lon, sensor.lat])
-		geo_feature = GeoJSONFeature(properties = dict(key = sensor.key),
+	for station  in stations:
+		name, latest_time, lat, lon = station
+
+		point_geom = PointGeometry(coordinates = [station.lon,
+												  station.lat])
+
+		geo_feature = GeoJSONFeature(properties = dict(key = station.station_key),
 									geometry = point_geom)
 		feautures.append(geo_feature)
-	print(feautures)
 	feature_collection = GeoJSONFeatureCollection(features = feautures)
-	return feature_collection#[dict(key = s.key, lat = s.lat, lon = s.lon) for s in sensor_data]
+	return feature_collection
 
 
-@app.get("/api/v0p1/sensor_by_id/{sensor_id}", tags = ["Download"])
+#passed
+@app.get("/api/v0p2/sensor_by_id/{sensor_id}", tags = ["Download"])
 async def get_sensor_values(sensor_id: str,
 							min_time: Optional[int]   = None,
 							max_time: Optional[int]   = None,
 							min_lat:  Optional[float] = None,
-							max_lat:  Optional[float] = None, 
+							max_lat:  Optional[float] = None,
 							min_lon:  Optional[float] = None,
 							max_lon:  Optional[float] = None,
 							limit  :  Optional[int]   = None):
 
-	"""
-	Returns a list of ALL sensors containing a certain ID. Additional parameters exist to filter for a given geographic area (bounding box) as well as time range.
-	"""
 
-	data:List[SensorPayload] = api.get_data()
-	print(f"LENGTH:{len(data)}")
-	data = [sensor for sensor in data if sensor.key == sensor_id]
+	int_to_ts = lambda x: datetime.datetime.fromtimestamp(int(x))
 
-	print(min_lat,	type(min_lat))
-	print(min_time, type(min_time))
+	lats = None if min_lat is None or max_lat is None else (min_lat, max_lat)
+	lons = None if min_lon is None or max_lon is None else (min_lon, max_lon)
+	time_range = None if min_time is None or max_time is None else ( int_to_ts(min_time),
+																	 int_to_ts(max_time))
 
-	if min_time is not None:
-		data = [sensor for sensor in data if sensor.timestamp is not None]
-		data = [sensor for sensor in data if sensor.timestamp > min_time]
+	print(time_range)
 
-	if max_time is not None:
-		data = [sensor for sensor in data if sensor.timestamp is not None]
-		data = [sensor for sensor in data if sensor.timestamp < max_time]
+	query = MeasurementsQuery(key = sensor_id,
+						 lats = lats,
+						 lons = lons,
+						 time_range = time_range)
 
-	if min_lat is not None:
-		data = [sensor for sensor in data if sensor.lat is not None]
-		data = [sensor for sensor in data if sensor.lat > min_lat]
-	if max_lat is not None:
-		data = [sensor for sensor in data if sensor.lat is not None]
-		data = [sensor for sensor in data if sensor.lat < max_lat]
-
-	if min_lon is not None:
-		data = [sensor for sensor in data if sensor.lon is not None]		
-		data = [sensor for sensor in data if sensor.lon > min_lon]
-	if max_lon is not None:
-		data = [sensor for sensor in data if sensor.lon is not None]				
-		data = [sensor for sensor in data if sensor.lon > max_lon]
-
-#	data = sorted(data, key = lambda sensor: -sensor.timestamp)
-	return data
+	results = storage_adapter.get_bounded(query = query)
+	return  list(results)
 
 
 class APIStatus(BaseModel):
 	up: bool
 	connected_to_storage: bool 
+
+
 
 @app.get("/health", tags= ["Auxilary"])
 def health() -> APIStatus:
@@ -165,6 +210,7 @@ def health() -> APIStatus:
 	# With the CSV API we're going to assume nothing is severed from local storage.
 	status = APIStatus(up = True,	connected_to_storage = True)
 	return status
+
 
 @app.get("/", tags= ["Auxilary"])
 def home():
@@ -182,7 +228,7 @@ async def debug_get_all_data():
 	"""
 	Returns ALL available data
 	"""
-	data:List[SensorPayload] = api.get_data()
+	data:List[Measurement] = list(storage_adapter.get_all())
 	return data
 
 import time

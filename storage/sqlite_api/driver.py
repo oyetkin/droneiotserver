@@ -1,34 +1,22 @@
 from sqlalchemy import Table, Column, Integer, String, MetaData, Numeric, DateTime, Float
 from sqlalchemy import or_, and_
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy import create_engine
 from datetime import datetime
 from sqlalchemy import bindparam
 
 from pydantic import BaseModel
 from typing import List, Dict, Tuple, Union, Iterable, Optional
+from sqlalchemy.orm import sessionmaker
 
+import sys
+sys.path.append("../")
+from ..models import Measurement, MeasurementsQuery, LatestStationMeta #StationContext, StationMeta
+import pathlib
+import os
 
-class Measurement(BaseModel):
-	key: str
-	measurement_name:str
-	unit:str
-	value:Union[int, float]
-	timestamp:datetime
-	receipt_time:datetime
-	latitude:float
-	longitude:float
-	hardware:str
+CURRENT_DIR = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
 
-class MeasurementsQuery(BaseModel):
-	lats:Optional[Tuple[float, float]]
-	lons:Optional[Tuple[float, float]]
-	time_range: Optional[Tuple[datetime, datetime]]
-	receipt_time_range: Optional[Tuple[datetime,datetime]]
-	measurement_name: Optional[str]
-	hardware:Optional[str]
-	key:Optional[str]
-	unit:Optional[str]
 
 class MeasurementsDBAdapter:
 	def __init__(self):
@@ -45,8 +33,7 @@ class MeasurementsDBAdapter:
 		  hardware            [String]    Hardware name. Like sensor type.
 		"""
 
-		engine = create_engine('sqlite:///measurements.db', echo=True)
-
+		engine = create_engine(f'sqlite:///{str(CURRENT_DIR)}/data/measurements.db', echo=True)
 		meta = MetaData()
 
 		self.measurements = Table(
@@ -66,6 +53,12 @@ class MeasurementsDBAdapter:
 		meta.create_all(engine)
 		self.conn = engine.connect()
 
+		Session = sessionmaker(bind = engine)
+		self.session = Session()
+
+	def __internal_datestring_to_datetime__(self, date_string:str) -> datetime:
+		return datetime.strptime(date_string,  '%Y-%m-%d %H:%M:%S.%f')
+
 	def insert_measurement(self, m:Measurement) -> None:
 		insert = self.measurements.insert().values(**m.dict())
 		result = self.conn.execute(insert)
@@ -81,11 +74,22 @@ class MeasurementsDBAdapter:
 		result = self.conn.execute(s)
 		return map(lambda x: Measurement(**x), result)
 
+	def get_stations(self) -> Iterable[LatestStationMeta]:
+		statement = """
+		SELECT * FROM (SELECT key, timestamp, latitude, longitude FROM measurements ORDER BY timestamp DESC) GROUP BY key;	
+		"""
+		result = self.conn.execute(text(statement))
+
+		for station in result:
+			latest_timestamp = self.__internal_datestring_to_datetime__(station.timestamp)
+			station_metadata = LatestStationMeta(station_key = station.key,
+												 lon = float(station.longitude),
+												 lat = float(station.latitude),
+												 latest_time = latest_timestamp)
+			yield station_metadata
+
 
 	def get_bounded(self, query:MeasurementsQuery) -> Iterable[Measurement]:
-
-		# lat1, lat2 = sorted(lats)
-
 		selection_criteria = []
 
 		#### Ranged
@@ -128,62 +132,101 @@ class MeasurementsDBAdapter:
 		return map(lambda x: Measurement(**x), result)
 
 
+
+
 if __name__ == "__main__":
 	adapter = MeasurementsDBAdapter()
+	from sqlalchemy.sql import text
 
+	print(list(adapter.get_stations()))
+
+	# print(list(adapter.get_all()), sep = '\n')
+
+	#
+	# statement = """
+	#  SELECT key, latitude, longitude, timestamp FROM  measurements GROUP BY key ORDER BY timestamp DESC LIMIT 10;
+	# """
+	#
+	#
+	# # statement2 = """SELECT key, latitude, longitude, timestamp FROM measurements WHERE key LIKE '%1' ORDER BY timestamp DESC LIMIT 10;"""
+	#
+	# # ORDER BY timestamp DESC
+	# statement2 = """ SELECT key, latitude, longitude, timestamp FROM  measurements WHERE key LIKE "%0"ORDER BY timestamp DESC LIMIT 10;"""
+	#
+	#
+	# def try_it(s):
+	# 	print("__ __ __ __ __ __ __ ")
+	# 	result = adapter.conn.execute(text(s))
+	# 	for x in result:
+	# 		print(x)
+	#
+	# statement3 = """
+	# SELECT * FROM (SELECT latitude, longitude, key, timestamp FROM measurements ORDER BY timestamp DESC) GROUP BY key;
+	# """
+	#
+	# try_it(statement3)
+	# print(list(result))
+	# statement = text("""INSERT INTO book(id, title, primary_author) VALUES(:id, :title, :primary_author)""")
+	#
+	# for line in data:
+	# 	con.execute(statement, **line)
 
 	import random
 	import time
 	from datetime import  datetime, timedelta
-
-	def __generate_random_measurement() -> Measurement:
-		measurement =  Measurement(key = f"Otto's station No. {int((random.random() *2 )//1)}", measurement_name = "Temperature",
-                                  unit = "C",
-                                  value = random.random()*50,
-                                  timestamp = datetime.now(),
-                                  receipt_time = datetime.now(),
-                                  latitude = 0.0 + (random.random()-.5) * 10,
-                                  longitude = 0.0 + (random.random()-.5) * 10,
-                                  hardware = f"Thermometer {(random.random() *3)//1}"
-                                  )
-		return measurement
-
-
+	#
+	# def __generate_random_measurement() -> Measurement:
+	# 	measurement =  Measurement(key = f"Otto's station No. {int((random.random() *2 )//1)}", measurement_name = "Temperature",
+    #                               unit = "C",
+    #                               value = random.random()*50,
+    #                               timestamp = datetime.now(),
+    #                               receipt_time = datetime.now(),
+    #                               latitude = 0.0 + (random.random()-.5) * 10,
+    #                               longitude = 0.0 + (random.random()-.5) * 10,
+    #                               hardware = f"Thermometer {(random.random() *3)//1}"
+    #                               )
+	# 	return measurement
+	# adapter.insert_measurement(__generate_random_measurement())
+	#
 	# for x in range(10000):
 	# 	adapter.insert_measurement(__generate_random_measurement())
 
-	def time_and_print(name, query:MeasurementsQuery):
-		t1 = time.time()
-		x = adapter.get_bounded(query)
-		xx = list(x)
-		t2 = time.time()
-		print(f"{name}:::")
-		print(t2 - t1)
-		print(f"Len: {len(xx)}")
-		#print(*xx[:10], sep = "\n")
-		print()
-
-
-	time_and_print(name="Normal", query=MeasurementsQuery())
-	time_and_print(name="Lat Bounded", query= MeasurementsQuery(lats = (0,10)))
-	time_and_print(name="Hardware Bounded", query=MeasurementsQuery(hardware = "Thermometer 3"))
-	time_and_print(name="Key check", query=MeasurementsQuery(key = "Otto's station"))
-
-
-	insert = __generate_random_measurement()
-	print(insert)
-	adapter.insert_measurement(insert)
-
-	print("sleeping")
-	time.sleep(3)
-	print(f"::::{insert.receipt_time}")
-	now = datetime.now()
-	before = now - timedelta(minutes = 10)
-	print(f"--{before}")
-	print(f"--{now}")
-
-	time_and_print(name="Date check", query=MeasurementsQuery(receipt_time_range = (before, now)))
-
+	# def time_and_print(name, query:MeasurementsQuery):
+	# 	t1 = time.time()
+	# 	x = adapter.get_bounded(query)
+	# 	xx = list(x)
+	# 	t2 = time.time()
+	# 	print(f"{name}:::")
+	# 	print(t2 - t1)
+	# 	print(f"Len: {len(xx)}")
+	# 	#print(*xx[:10], sep = "\n")
+	# 	print()
+	#
+	#
+	# z = select(adapter.measurements.lat)
+	#
+	# print(f"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$${z}")
+	#
+	# time_and_print(name="Normal", query=MeasurementsQuery())
+	# time_and_print(name="Lat Bounded", query= MeasurementsQuery(lats = (0,10)))
+	# time_and_print(name="Hardware Bounded", query=MeasurementsQuery(hardware = "Thermometer 3"))
+	# time_and_print(name="Key check", query=MeasurementsQuery(key = "Otto's station"))
+	#
+	#
+	# insert = __generate_random_measurement()
+	# print(insert)
+	# adapter.insert_measurement(insert)
+	#
+	# print("sleeping")
+	# time.sleep(3)
+	# print(f"::::{insert.receipt_time}")
+	# now = datetime.now()
+	# before = now - timedelta(minutes = 10)
+	# print(f"--{before}")
+	# print(f"--{now}")
+	#
+	# time_and_print(name="Date check", query=MeasurementsQuery(receipt_time_range = (before, now)))
+	#
 
 
 # tf_1 = time.time()
