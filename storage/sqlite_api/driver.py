@@ -33,7 +33,10 @@ class MeasurementsDBAdapter:
 		  hardware            [String]    Hardware name. Like sensor type.
 		"""
 
-		engine = create_engine(f'sqlite:///{str(CURRENT_DIR)}/data/measurements.db', echo=True)
+		DB_PATH = f"{str(CURRENT_DIR)}/data"
+		pathlib.Path(DB_PATH).mkdir(parents=True, exist_ok=True)
+
+		engine = create_engine(f'sqlite:///{DB_PATH}/measurements.db', echo=True)
 		meta = MetaData()
 
 		self.measurements = Table(
